@@ -1,0 +1,793 @@
+#Global packages needed for models
+	library(survival) #needed for recruitment models
+	library(AER)	#ditto
+	library(lmtest)	#needed for all models
+	library(rms)	#ditto
+	library(hier.part)#ditto
+
+####################################
+# NON-SPATIAL ANALYSIS OF FIA DATA #
+# CREATED BY RANDY PETERSON        #
+# LAST UPDATED 11-17-2010          #
+####################################
+############################
+# Store original directory #
+############################
+	odir <- getwd() 
+
+#############
+# Load data #
+#############
+#Set directory to where the data is located
+	setwd("C:/Users/ma628/Desktop/CHR under climate change/Data/Forest data/")
+#Next, load the data
+	#mortality data
+		m.spcd1 <- read.delim("M_SPCD1.txt",header=T)
+		m.spcd2 <- read.delim("M_SPCD2.txt",header=T)
+		m.spcd3 <- read.delim("M_SPCD3.txt",header=T)
+		m.spcd4 <- read.delim("M_SPCD4.txt",header=T)
+		m.spcd5 <- read.delim("M_SPCD5.txt",header=T)
+		m.spcd6 <- read.delim("M_SPCD6.txt",header=T)
+                m.spcd7 <- read.delim("M_SPCD7.txt",header=T)
+	#recruitment data
+		r.data1 <- read.delim("R_SPCD1.txt",header=T)
+                r.data2 <- read.delim("R_SPCD2.txt",header=T)
+                r.data3 <- read.delim("R_SPCD3.txt",header=T)
+                r.data4 <- read.delim("R_SPCD4.txt",header=T)
+                r.data5 <- read.delim("R_SPCD5.txt",header=T)
+                r.data6 <- read.delim("R_SPCD6.txt",header=T)
+                r.data7 <- read.delim("R_SPCD7.txt",header=T)
+	#upgrowth data
+		u.spcd1 <- read.delim("U_SPCD1.txt",header=T)
+		u.spcd2 <- read.delim("U_SPCD2.txt",header=T)
+		u.spcd3 <- read.delim("U_SPCD3.txt",header=T)
+		u.spcd4 <- read.delim("U_SPCD4.txt",header=T)
+		u.spcd5 <- read.delim("U_SPCD5.txt",header=T)
+		u.spcd6 <- read.delim("U_SPCD6.txt",header=T)
+                u.spcd7 <- read.delim("U_SPCD7.txt",header=T)
+        #volume data
+                v.spcd1 <- read.delim("V_SPCD1.txt",header=T)
+		v.spcd2 <- read.delim("V_SPCD2.txt",header=T)
+		v.spcd3 <- read.delim("V_SPCD3.txt",header=T)
+		v.spcd4 <- read.delim("V_SPCD4.txt",header=T)
+		v.spcd5 <- read.delim("V_SPCD5.txt",header=T)
+		v.spcd6 <- read.delim("V_SPCD6.txt",header=T)
+                v.spcd7 <- read.delim("V_SPCD7.txt",header=T)
+
+#Next create functions used
+	#Create a function to add correct number of stars by signif. level
+		foo.star <- function(x) {
+			if (x<=0.05 && x>0.01) { return("*") }
+			else if (x<=0.01 && x>0.001) { return("**") }
+			else if (x<=0.001) { return("***") }
+			else { return("") }
+		}	
+	#Create a function to output model equations.
+		foo.equ.out <- function(x,r=3,var.names=NULL,type) {
+			#obtain names of variables in equ., or let user specify
+				if(is.null(var.names)) { equ.names <- names(x$coef) }
+				else { equ.names <- var.names }
+			#remove the name "intercept", assuming it holds position 1!
+				equ.names[1] <- ""
+			#obtain param. estimates
+				#if recruitment, we need to include logscale
+					if(type=="r") { equ.names[length(equ.names)+1] <- "Scale" 
+					coefs <- c(round(x$coef,r),round(x$scale,r)) }
+				#else if anything else
+					if(type!="r") { coefs <- round(x$coef,r) }
+			#this works iif program x has a summary command
+				summ.x <- summary(x)
+			#level of signif as determined by p-vals found w/ summary command
+				if(!is.null(summ.x$table)) { stars <- mapply(foo.star, summ.x$table[,4]) }
+				else if(!is.null(summ.x$coef)) { stars <- mapply(foo.star, summ.x$coef[,4]) } 
+			#concacenate and print
+				indiv.params <- paste(coefs, equ.names, stars, sep="")
+				out <- paste(indiv.params,sep="", collapse=" + ")
+				noquote(out)
+		}		
+
+	
+####################
+# Mortality models #
+####################
+#Fit all the Mortality models using random forests
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RF1 <- randomForest(M ~., data=m.spcd1, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RF1, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RF1 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RF1 <- cbind.data.frame(Pred_RF1, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RF1)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RF1)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RF1)
+  
+}
+  
+write.csv(Pred_RF1, paste("B_",var,".csv", sep = ""), row.names = T)
+
+}
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RF2 <- randomForest(M ~., data=m.spcd2, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RF2, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RF2 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RF2 <- cbind.data.frame(Pred_RF2, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RF2)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RF2)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RF2)
+  
+}
+  
+write.csv(Pred_RF2, paste("B_",var,".csv", sep = ""), row.names = T)
+
+}
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RF3 <- randomForest(M ~., data=m.spcd3, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RF3, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RF3 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RF3 <- cbind.data.frame(Pred_RF3, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RF3)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RF3)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RF3)
+  
+}
+  
+write.csv(Pred_RF3, paste("B_",var,".csv", sep = ""), row.names = T)
+
+}
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RF4 <- randomForest(M ~., data=m.spcd4, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RF4, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RF4 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RF4 <- cbind.data.frame(Pred_RF4, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RF4)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RF4)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RF4)
+  
+}
+  
+write.csv(Pred_RF4, paste("B_",var,".csv", sep = ""), row.names = T)
+
+}
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RF5 <- randomForest(M ~., data=m.spcd5, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RF5, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RF5 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RF5 <- cbind.data.frame(Pred_RF5, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RF5)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RF5)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RF5)
+  
+}
+  
+write.csv(Pred_RF5, paste("B_",var,".csv", sep = ""), row.names = T)
+
+}
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RF6 <- randomForest(M ~., data=m.spcd6, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RF6, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RF6 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RF6 <- cbind.data.frame(Pred_RF6, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RF6)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RF6)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RF6)
+  
+}
+  
+write.csv(Pred_RF6, paste("B_",var,".csv", sep = ""), row.names = T)
+
+}
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RF7 <- randomForest(M ~., data=m.spcd7, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RF7, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RF7 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RF7 <- cbind.data.frame(Pred_RF7, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RF7)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RF7)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RF7)
+  
+}
+  
+write.csv(Pred_RF7, paste("B_",var,".csv", sep = ""), row.names = T)
+
+}
+######################
+# Recruitment models #
+######################
+#load the nested packages needed for recruitment models
+	library(survival) #needed for recruitment models
+        
+#Fit all the Recruitment models using random forests
+
+  for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFr1 <- randomForest(R1 ~., data=r.data1, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFr1, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFr1 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFr1 <- cbind.data.frame(Pred_RFr1, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFr1)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFr1)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFr1)
+  
+   }
+  
+  write.csv(Pred_RFr1, paste("C_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFr2 <- randomForest(R2 ~., data=r.data2, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFr2, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFr2 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFr2 <- cbind.data.frame(Pred_RFr2, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFr2)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFr2)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFr2)
+  
+   }
+  
+  write.csv(Pred_RFr2, paste("C_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+         
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFr3 <- randomForest(R3 ~., data=r.data3, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFr3, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFr3 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFr3 <- cbind.data.frame(Pred_RFr3, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFr3)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFr3)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFr3)
+  
+   }
+  
+  write.csv(Pred_RFr3, paste("C_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFr4 <- randomForest(R4 ~., data=r.data4, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFr4, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFr4 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFr4 <- cbind.data.frame(Pred_RFr4, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFr4)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFr4)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFr4)
+  
+   }
+  
+  write.csv(Pred_RFr4, paste("C_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFr5 <- randomForest(R5 ~., data=r.data5, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFr5, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFr5 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFr5 <- cbind.data.frame(Pred_RFr5, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFr5)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFr5)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFr5)
+  
+   }
+  
+  write.csv(Pred_RFr5, paste("C_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFr6 <- randomForest(R6 ~., data=r.data6, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFr6, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFr6 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFr6 <- cbind.data.frame(Pred_RFr6, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFr6)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFr6)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFr6)
+  
+   }
+  
+  write.csv(Pred_RFr6, paste("C_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFr7 <- randomForest(R7 ~., data=r.data7, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFr7, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFr7 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFr7 <- cbind.data.frame(Pred_RFr7, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFr7)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFr7)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFr7)
+  
+   }
+  
+  write.csv(Pred_RFr7, paste("C_",var,".csv", sep = ""), row.names = T)
+
+  }
+##################
+# Upgrowth models #
+###################
+
+#remove outliers caused by measurement error
+#remove 1% of data on both sides (this assumes that the measurement error was normally distributed)
+	c <- 0.010
+	u.spcd1.2p <- u.spcd1[(round(c*dim(u.spcd1)[1])+1):(dim(u.spcd1)[1]-round(c*dim(u.spcd1)[1])),]
+	u.spcd2.2p <- u.spcd2[(round(c*dim(u.spcd2)[1])+1):(dim(u.spcd2)[1]-round(c*dim(u.spcd2)[1])),]
+	u.spcd3.2p <- u.spcd3[(round(c*dim(u.spcd3)[1])+1):(dim(u.spcd3)[1]-round(c*dim(u.spcd3)[1])),]
+	u.spcd4.2p <- u.spcd4[(round(c*dim(u.spcd4)[1])+1):(dim(u.spcd4)[1]-round(c*dim(u.spcd4)[1])),]
+	u.spcd5.2p <- u.spcd5[(round(c*dim(u.spcd5)[1])+1):(dim(u.spcd5)[1]-round(c*dim(u.spcd5)[1])),]
+	u.spcd6.2p <- u.spcd6[(round(c*dim(u.spcd6)[1])+1):(dim(u.spcd6)[1]-round(c*dim(u.spcd6)[1])),]
+        u.spcd7.2p <- u.spcd7[(round(c*dim(u.spcd7)[1])+1):(dim(u.spcd7)[1]-round(c*dim(u.spcd7)[1])),]
+
+
+#Fit all the Upgrowth models using random forests
+	
+
+  for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFu1 <- randomForest(dD ~., data=u.spcd1, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFu1, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFu1 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFu1 <- cbind.data.frame(Pred_RFu1, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFu1)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFu1)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFu1)
+  
+   }
+  
+  write.csv(Pred_RFu1, paste("D_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFu2 <- randomForest(dD ~., data=u.spcd2, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFu2, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFu2 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFu2 <- cbind.data.frame(Pred_RFu2, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFu2)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFu2)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFu2)
+  
+   }
+  
+  write.csv(Pred_RFu2, paste("D_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFu3 <- randomForest(dD ~., data=u.spcd3, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFu3, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFu3 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFu3 <- cbind.data.frame(Pred_RFu3, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFu3)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFu3)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFu3)
+  
+   }
+  
+  write.csv(Pred_RFu3, paste("D_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFu4 <- randomForest(dD ~., data=u.spcd4, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFu4, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFu4 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFu4 <- cbind.data.frame(Pred_RFu4, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFu4)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFu4)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFu4)
+  
+   }
+  
+  write.csv(Pred_RFu4, paste("D_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFu5 <- randomForest(dD ~., data=u.spcd5, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFu5, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFu5 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFu5 <- cbind.data.frame(Pred_RFu5, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFu5)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFu5)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFu5)
+  
+   }
+  
+  write.csv(Pred_RFu5, paste("D_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFu6 <- randomForest(dD ~., data=u.spcd6, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFu6, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFu6 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFu6 <- cbind.data.frame(Pred_RFu6, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFu6)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFu6)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFu6)
+  
+   }
+  
+  write.csv(Pred_RFu6, paste("D_",var,".csv", sep = ""), row.names = T)
+
+  }
+
+
+
+for(i in 1:50){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.9*nrow(ORB)), replace=T),]
+  
+  RFu7 <- randomForest(dD ~., data=u.spcd7, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RFu7, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RFu7 <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RFu7 <- cbind.data.frame(Pred_RFu7, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RFu7)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RFu7)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RFu7)
+  
+   }
+  
+  write.csv(Pred_RFu7, paste("D_",var,".csv", sep = ""), row.names = T)
+
+  }
+        
+###################################
+# Reset to the original directory #
+###################################
+	setwd(odir)
+        
+       
+        
+        
+        
+        

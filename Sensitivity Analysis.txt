@@ -1,0 +1,130 @@
+.libPaths("U:/R/win-library/3.5")
+## Plot ceteris paribus effect of important variables on DH
+
+library(randomForest)
+
+memory.limit(80000)
+memory.size(80000)
+rm(list = ls())
+gc()
+
+## Begin ORB
+ORB <- read.csv("C:/Users/ma628/Desktop/Random forest/Run code/Sensitivity Analysis/M_SPCD7.csv")
+summary(ORB)
+NEWORB<-ORB[,-1]
+summary(NEWORB)
+NEWORB <- na.omit(NEWORB)
+head(ORB[,c(2,3,4,5,6,9)])
+
+for (var in c(2,3,4,5,6,9)){
+new_df <- colMeans(NEWORB)
+new_df <- as.data.frame(lapply(new_df, rep, 100))
+new_df[,(var-1)] <- seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+
+set.seed(112)#112
+for(i in 1:5){
+  
+  mysample<-ORB[sample(1:nrow(ORB),round(.2*nrow(ORB)), replace=T),]
+  
+  RF <- randomForest(M ~., data=mysample, importance = FALSE, err.rate = F, ntree=600, mtry=16,node=4)
+  
+  Pred_RF_i <- predict(RF, new_df, type="response")
+  
+  if(i == 1){
+    
+    Pred_RF <- data.frame(Pred_RF_i)
+    
+  }else{
+    
+    Pred_RF <- cbind.data.frame(Pred_RF, Pred_RF_i)
+    
+  }
+  
+  rownames(Pred_RF)<-seq(min(ORB[,var]),quantile(ORB[,var],0.2),length.out=100)
+  colnames(Pred_RF)[i] <- paste0("loop", i)
+  
+  cat(i, " ")
+  
+  rm(RF)
+  
+}
+  
+write.csv(Pred_RF, paste("B_",var,".csv", sep = ""), row.names = T)
+
+}
+
+
+  
+
+# Make sensitivity analysis plots
+# Make sure there is a folder named "Images" under the main directory
+rm(list = ls())
+gc()  
+
+
+
+
+######################################################################
+  # Make sensitivity analysis plots
+  # Make sure there is a folder named "Images" under the main directory
+  rm(list = ls())
+  gc()  
+  
+  
+  library(ggplot2)
+  library(hexbin)
+  library(ggpubr)
+  library(matrixStats)
+  
+  
+  # Chose the variable that you want to plot (select CSV file)
+  # Manually do one variable at a time
+  
+  SA_1 <- read.csv("B_2.csv");   
+  SA_2 <- read.csv("B_3.csv");   
+  SA_3 <- read.csv("B_4.csv");  
+  SA_4 <- read.csv("B_5.csv"); 
+  SA_5 <- read.csv("B_6.csv"); 
+  SA_6 <- read.csv("B_9.csv");  
+  
+  
+  for(i in c(1:6)){
+    
+    if(i == 1){ SA_i=SA_1};if(i == 1){ text <- "D" }
+    if(i == 2){ SA_i=SA_2};if(i == 2){ text <- "B" }
+    if(i == 3){ SA_i=SA_3};if(i == 3){ text <- "Hs" }
+    if(i == 4){ SA_i=SA_4};if(i == 4){ text <- "Hd" }
+    if(i == 5){ SA_i=SA_5};if(i == 5){ text <- "E" }
+    if(i == 6){ SA_i=SA_6};if(i == 6){ text <- "P" }
+
+  SA_i$Mean_SA  <- rowMeans(SA_i[, c(2: 6)])
+  SA_i$SdDev_SA <- rowSds(as.matrix(SA_i[, c(2: 6)]))
+  SA_i$SdErr_SA <- SA_i$SdDev_SA / sqrt(5) * 1.96
+    
+    plot <- ggplot(SA_i)+
+      geom_line(aes(x=X, y=Mean_SA))+
+      geom_ribbon(aes(x=X, ymin=Mean_SA-SdErr_SA, ymax=Mean_SA+SdErr_SA), alpha = 0.2, fill="blue")+
+      theme_bw() +
+      labs(x=NULL, y=NULL) +
+      annotate("text", x = max(SA_i$X)*0.5, 
+               y = max(SA_i$Mean_SA+SA_i$SdErr_SA)+
+                 (max(SA_i$Mean_SA+SA_i$SdErr_SA)-
+                    min(SA_i$Mean_SA-SA_i$SdErr_SA))/8*0.95, 
+               label = text,
+               hjust = 0.5, vjust=0.5,family="serif",colour = "black",size=5) +
+      theme(legend.position="none", panel.grid = element_blank(),
+            plot.subtitle=element_text(hjust = 0.4,family="serif",colour="black")); plot
+    
+    if(i == 1){  pl1 <- plot  }; if(i == 2){  pl2 <- plot  }; if(i == 3){  pl3 <- plot  }
+    if(i == 4){  pl4 <- plot  }; if(i == 5){  pl5 <- plot  }; if(i == 6){  pl6 <- plot  }
+   
+  }
+  
+  nt.plot <- ggarrange(pl1, pl2, pl3, pl4, pl5, pl6, ncol=3, nrow=2); nt.plot
+
+  annotate_figure(nt.plot,  left   = "Predicted M (OA)")
+  
+  ggsave("plot.png", width=7, height=5, dpi=1000)
+  ggsave("plot.tiff", width=7, height=5, dpi=1000)
+  
+  #dev.off()

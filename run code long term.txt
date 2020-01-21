@@ -1,0 +1,36 @@
+## Load Functions, Models, Etc... ##
+####################################
+## Set main directory
+setwd("C:/Users/ma628/Desktop/CHR under climate change/")
+## Load short-term simulation function
+source("Run code/Long-term Version 0-3b.R") #working
+## Run code to obtain non-spatial models
+library(splines)
+source("Run code/non-spatial 7 spcd - Random Forest.R")
+## Load models
+recruit.coef <- list(Pred_RFr1,Pred_RFr2,Pred_RFr3,Pred_RFr4,Pred_RFr5,Pred_RFr6,Pred_RFr7)
+upgrowth.coef <- list(Pred_RFu1,Pred_RFu2,Pred_RFu3,Pred_RFu4,Pred_RFu5,Pred_RFu6,Pred_RFu7)
+mortality.coef <- list(Pred_RF1,Pred_RF2,Pred_RF3,Pred_RF4,Pred_RF5,mPred_RF6,Pred_RF7)
+## Store the current date
+dateOut <- format(Sys.time(), "%m-%d-%Y - ")
+
+################
+## No Harvest ##
+################
+#Load initial data    
+
+initial.lsf.stand <- read.delim("Data/Forest data/PostInventory2.txt",header=TRUE)
+
+#Apply function stand.sim, to predict stand state 
+
+nonspat.noharv.Inv2 <- stand.sim(initial.lsf.stand,param.loc=NULL,tree.loc=c(12:130),r.coef=recruit.coef,u.coef=upgrowth.coef,m.coef=mortality.coef,v.coef=volume.coef,output=FALSE)               	             
+
+
+
+
+
+
+
+
+
+

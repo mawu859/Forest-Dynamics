@@ -1,0 +1,623 @@
+
+
+######################################################################################################################
+#arguments			description
+######################################################################################################################
+#inv.dat 			inventory data
+#param.loc			subscript locations of where the stand parameters are stored in inv.dat, to be added later
+#tree.loc			subscript locations of where the tree data is stored in inv.dat
+#NOTE: CODE ACCEPTS CONSISTENT DATA FRAME MODELS ONLY (this does not apply to R model objects)
+#r.coef			recruitment equation coefficients, as a data frame 
+#				recruitment equations fitted in R (NOTE: must have a valid predict command)
+#u.coef			upgrowth equation coefficients, as a data frame 
+#				upgrowth equations fitted in R (NOTE: must have a valid predict command)
+#m.coef			mortality equation coefficients, as a data frame 
+#				mortality equations fitted in R (NOTE: must have a valid predict command)
+#n.reps			number of repititions for the simulation to be caried out, later this will be changed
+#diam.loc			specify interior, coastal, or a vector (midpoint of each diameter class)
+#output			binary. specify whether you want to output the results at the end of simulation
+
+stand.sim <- function(inv.dat, param.loc=NULL, tree.loc, r.coef, u.coef, m.coef, v.coef, diam.loc="central hardwood region", output=FALSE) {
+	##########################################
+	##       DATA INPUT AND CONVERSION      ##
+	##########################################
+
+	#Calculate number of plots
+
+		Nplot <- dim(inv.dat)[1]
+
+	#Calculate number of species, assumes 17 sizeclasses
+
+		num.species <- length(tree.loc)/17
+
+	#Midpoints of each size-class for central hardwood region and user specified 
+
+		if(is.vector(diam.loc)) {
+
+			diam.class <- diam.loc }
+
+		if(diam.loc=="central hardwood region") {
+
+			diam.class <- c(4.77,9.50,14.50,19.50,24.50,29.50,34.50,39.50,44.50,49.50,54.50,59.50,64.50,69.50,74.50,79.50,84.50) }
+
+	#Create various vectors to be used to calculate basal area
+
+		width.class <- rep(diam.class[5]-diam.class[4],length(diam.class))
+
+		width.class[1] <- diam.class[2]-diam.class[1]
+
+		diam.class <- as.vector(replicate(num.species,c(diam.class)))
+
+		width.class <- as.vector(replicate(num.species,c(width.class)))
+
+		basalarea.class <- diam.class^2*3.14159/40000
+
+                basal <- replicate(Nplot,c(basalarea.class))
+
+                basal <- t(basal)
+
+	#initial stem density
+
+		stem.dist <- inv.dat[,tree.loc]
+
+                stem.dist <- as.matrix(stem.dist)
+                
+	#Other model inputs, defaults to not tree data
+
+		if(is.null(param.loc)) param.loc <- (1:dim(inv.dat)[2])[-tree.loc]
+
+		param.names <- names(inv.dat[,c(param.loc)])
+
+		for (i in 1:length(param.names)) { assign(param.names[i], inv.dat[,param.loc[i]]) }	
+	
+        #coordinate locations (for geospatial methods)
+
+		coord.locs <- c(grep("LON", param.names, ignore.case=TRUE), grep("LAT", param.names, ignore.case=TRUE))
+
+	#the number of years for each plot is stored into a vector called "time"
+
+	#use it to calculate the number of times we need to replicate vector
+
+		Time.loc <- grep("time", param.names, ignore.case=TRUE)
+
+		Time <- inv.dat[,Time.loc]
+
+		max.year <- 30
+			
+	###########################################
+	## Outer function for interval of n.reps ##
+	###########################################
+	#start of outer loop
+        
+        a <- 1
+
+        b <- 2
+        
+        mfi <- matrix(0,nrow=1107,ncol=10,byrow=T)
+        
+        sum.density <- matrix(0,nrow=1107,ncol=1,byrow=T)
+        
+        population.density <- matrix(0,nrow=1107,ncol=1,byrow=T)
+        
+        MFI <- matrix(0,nrow=1107,ncol=1,byrow=T)
+        
+        MFI1 <- matrix(0,nrow=1107,ncol=10,byrow=T)
+        
+        t1 <- matrix(0,nrow=1107,ncol=10,byrow=T)
+        
+        t <- matrix(0,nrow=1107,ncol=1,byrow=T)
+        
+        ti <- matrix(0,nrow=1107,ncol=1,byrow=T)
+        
+        mean <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        mean1 <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        mean.basalarea <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        mean.v <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        sum <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        sum.basalarea <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        sum.v <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        
+        
+        
+        
+        mean.whiteoakv <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        mean.redoakv <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        mean.maplev <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        mean.beechv <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        mean.hickoryv <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        mean.softwoodv <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        mean.otherv <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        
+        
+        
+        
+        
+        sum.whiteoakv <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        sum.redoakv <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        sum.maplev <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        sum.beechv <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        sum.hickoryv <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        sum.softwoodv <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        sum.otherv <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        
+        
+        
+        
+        
+        
+        mean.whiteoakR <- matrix(0,nrow=max.year,ncol=1,byrow=T)
+        
+        HS <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+        
+        HD <- matrix(0,nrow=max.year,ncol=119,byrow=T)
+
+	for (k in 1:max.year) {
+
+		#Print the simulation of max.sims so user has an idea of time!
+
+			print(paste("simulation", k,"of",max.year,sep=" "))	
+		
+                #Calculate basal area for each plot 	
+
+			B <- stem.dist %*% basalarea.class
+
+		#Calculate basal area table
+
+			ba.dist <- stem.dist
+
+			num.szcl <- 17*num.species
+
+			to.ba <- function(x,szcl) return(x*((diam.class[szcl]^2*pi/4)/10000))
+
+			for(i in 1:num.szcl) { ba.dist[,i] <- mapply(to.ba, stem.dist[,i], i) } 
+
+		#Calculate stem density and basal area by species
+
+			N.total <- rowSums (stem.dist)		#total stem density
+
+			BA.total <- rowSums (ba.dist)	        #total basal area 
+
+			N.ALL <- matrix(ncol=num.species,nrow=Nplot) #create a matrix to store the n species
+
+			BA.ALL <- matrix(ncol=num.species,nrow=Nplot) #create a matrix to store the n species
+
+			num.szcl <- 1:17 # vector to hold the sizeclass
+
+			for(i in 1:num.species) {
+
+				N.ALL[,i] <- rowSums(stem.dist[,num.szcl]) 
+
+				BA.ALL[,i] <- rowSums(ba.dist[,num.szcl]) 
+
+				num.szcl <- num.szcl + 17
+			}
+
+			dimnames(N.ALL)[[2]] <- mapply(function(x) paste("N_SPCD",x,sep=""), 1:num.species)
+
+			dimnames(BA.ALL)[[2]] <- mapply(function(x) paste("BA_SPCD",x,sep=""), 1:num.species)
+
+		#Calculate stem density and basal area by size-class
+
+			N.SZCL <- matrix(ncol=17,nrow=Nplot) #create a matrix to store the 17 size-classes
+
+			BA.SZCL <- matrix(ncol=17,nrow=Nplot) #create a matrix to store the 17 size-classes
+
+			num.szcl <- 1:num.species*17 - 16 # vector to hold the sizeclass
+
+			for(i in 1:17) {
+
+				N.SZCL[,i] <- rowSums(stem.dist[,num.szcl]) 
+
+				BA.SZCL[,i] <- rowSums(ba.dist[,num.szcl]) 
+
+				num.szcl <- num.szcl + 1
+			}
+			dimnames(N.SZCL)[[2]] <- mapply(function(x) paste("N_SZCL",x,sep=""), 1:17)
+
+			dimnames(BA.SZCL)[[2]] <- mapply(function(x) paste("BA_SZCL",x,sep=""), 1:17)	
+
+                #Calculate Hs and Hd
+		foo.div <- function(x,ba.tot) { ifelse(x<=0, 0, log(x/ba.tot)) }
+			#Hs_ba by plot  
+				Hs <- rep(NA, Nplot)
+				for(i in 1:Nplot) {
+					if(!(is.na(BA.total[i])) && BA.total[i]<=0 ) { Hs[i] <- 0 } #if BA.total is 0 or less (shouldn't be less...), Hs is set to 0, !(is.na(BA.total[i])) && 
+					if(!(is.na(BA.total[i])) && BA.total[i]>0) { 
+						hold.hs1 <- BA.ALL[i,]/BA.total[i]
+						hold.hs2 <- mapply(foo.div, BA.ALL[i,], BA.total[i])
+						Hs[i] <- -sum(hold.hs1*hold.hs2)
+					}
+				}
+
+                        HS[k,1] <- mean(Hs[1:Nplot])
+
+			#Hd_ba by plot
+				Hd <- rep(NA, Nplot)
+				for(i in 1:Nplot) {
+					if(!(is.na(BA.total[i])) && BA.total[i]<=0 ) { Hd[i] <- 0 } #if BA.total is 0 or less (shouldn't be less...), Hd is set to 0, !(is.na(BA.total[i])) &&
+					if(!(is.na(BA.total[i])) && BA.total[i]>0) { 
+						hold.hd1 <- BA.SZCL[i,]/BA.total[i]
+						hold.hd2 <- mapply(foo.div, BA.SZCL[i,], BA.total[i])
+						Hd[i] <- -sum(hold.hd1*hold.hd2)
+					}
+				}
+
+                       HD[k,1] <- mean(Hd[1:Nplot])
+
+
+                 #Calculate PPT and Tmean when RCP is diiferent                         
+  
+                 Climate <- read.delim("Data/Climate data/2.6.txt",header=TRUE)  
+
+                
+			
+			##########################################
+		##  Components of Matrix Growth Model   ##
+		##########################################
+		##If the models are not in a data frame, I assume them to be R objects. 
+		##Should be a list of the models all combined into a single object.
+		##Supported formats include dataframe(original format), lm, glm(probit/logit/poisson/etc...), and spatial 
+		##########################################
+		## Recruitment vector
+		##
+			R <- mat.or.vec(Nplot,num.species*17)                  # Creating a NPlot*119 vector of zeros
+
+		##If one of the supported classes
+
+			if(class(r.coef[[1]])=="survreg" || class(u.coef[[1]])=="rf" || class(r.coef[[1]][[2]])=="variogramModel") {
+
+				#create object recruit.data
+
+					recruit.data <- as.data.frame(cbind(B,rowSums(N.ALL),N.ALL,Hs,Hd,PPT,Tmean,inv.dat[,param.loc]))
+
+					names(recruit.data) <- c("BA1","N", paste("N_SPCD",1:num.species,sep=""),"Hs","Hd","PPT","Tmean",param.names)
+
+				#If survreg object...
+
+					if(class(r.coef[[1]])=="survreg") { 
+
+						num.szcl <- 1
+
+						for (i in 1:num.species) { 
+
+							y <- predict(r.coef[[i]], newdata=recruit.data, type="response")
+
+							scale <- r.coef[[i]]$scale
+
+							pred <- pnorm(y/scale)*y+(scale/(sqrt(2*pi)))*exp(-((y^2)/(scale^2))/2)
+
+							R[,num.szcl]  <- pmax(0,pred)
+
+							num.szcl <- num.szcl + 17
+						}
+					}
+				#If rf object...
+
+					if(class(r.coef[[1]])=="lm") { 
+
+						num.szcl <- 1
+
+						for (i in 1:num.species) { 
+
+							pred <- predict(r.coef[[i]], newdata=recruit.data,type="response")
+
+							R[,num.szcl]  <- pmax(0,pred)
+
+							num.szcl <- num.szcl + 17
+						}
+					}
+
+				#If gstat spatial object...
+
+					if(class(r.coef[[1]][[2]])[1]=="variogramModel" && class(r.coef[[1]][[2]])[2]=="data.frame" && class(r.coef[[1]][[3]])=="character") { 
+
+						num.szcl <- 1
+
+						pred.data <- recruit.data
+
+						coordinates(pred.data) = ~ UTM_X + UTM_Y
+
+						for (i in 1:num.species) { 
+
+							pred <- krige(as.formula(r.coef[[i]][[3]]), r.coef[[i]][[1]], pred.data, model = r.coef[[i]][[2]])$var1.pred  
+
+							R[,num.szcl]  <- pmax(0,pred)
+
+							num.szcl <- num.szcl + 17
+
+						} #end of for-loop for calculations
+
+					} #end of gstat type 1
+
+				#If geoR spatial object...
+
+					if(class(r.coef[[1]][[2]])[1]=="likGRF" && class(r.coef[[1]][[2]])[2]=="variomodel") { 
+
+						num.szcl <- 1
+
+						pred.data <- recruit.data
+
+						pred.locs <- data.frame(UTM_X = pred.data$UTM_X, UTM_Y = pred.data$UTM_Y)/10^3
+
+						for (i in 1:num.species) {
+
+							pred.cov <- model.frame(as.formula(r.coef[[i]][[3]]), data=pred.data)
+
+							pred.cov <- as.matrix(pred.cov)
+
+							KC <- krige.control(obj.model=r.coef[[i]][[2]],
+
+											trend.d = r.coef[[i]][[2]]$trend,
+
+											trend.l = trend.spatial("cte", geodata=list(coords=pred.locs),
+
+															add = ~pred.cov))
+
+							pred <- krige.conv(r.coef[[i]][[1]], loc=pred.locs, krige=KC)$predict
+
+							R[,num.szcl]  <- pmax(0,pred)
+
+							num.szcl <- num.szcl + 17
+
+						} #end of for-loop for calculations
+
+					} #end of gstat type 1
+
+			} #end of if r-object, then calculate
+
+		## Diameter growth
+		##
+			G <- mat.or.vec(Nplot,num.species*17)                  # Creating a NPlot*119 vector of zeros
+
+		##If one of the supported classes
+
+			#if rf object...
+
+				if(class(u.coef[[1]])=="rf" || class(u.coef[[1]])=="glm") {	
+
+					num.szcl <- 0
+
+					for (j in 1:num.species) {
+
+						for (i in 1:16) { 
+
+							hold <- as.data.frame(cbind(B,rowSums(N.ALL),rep(diam.class[i],Nplot),Hs,Hd,PPT,Tmean,inv.dat[,param.loc]))
+
+							names(hold) <- c("BA1","N", "DBH","Hs","Hd","PPT","Tmean",param.names)
+
+							pred <- predict(u.coef[[j]], newdata=hold)/width.class[i]
+
+							G[,i+num.szcl] <- pmin(1,pmax(0,pred))  #Species j
+
+							}
+
+						num.szcl <- num.szcl + 17
+					}
+				}
+
+			#if geoR spatial object...
+
+			#if gstat spatial object...
+
+				if(class(u.coef[[1]][[2]])[1]=="variogramModel" && class(u.coef[[1]][[2]])[2]=="data.frame" && class(u.coef[[1]][[3]])=="character") {	
+
+					num.szcl <- 0
+
+					for (j in 1:num.species) {
+
+						for (i in 1:16) { 
+
+							pred.data <- as.data.frame(cbind(B,rep(diam.class[i],Nplot),Hs,Hd,inv.dat[,param.loc]))
+
+							names(pred.data) <- c("BA1","DBH","Hs","Hd",param.names)
+
+							coordinates(pred.data) = ~ UTM_X + UTM_Y
+
+							pred <- krige(as.formula(u.coef[[j]][[3]]), u.coef[[j]][[1]], pred.data, model = u.coef[[j]][[2]])$var1.pred/width.class[i]
+
+							G[,i+num.szcl] <- pmin(1,pmax(0,pred))  #Species j
+
+							}
+
+						num.szcl <- num.szcl + 17
+
+					} #end of if gstat
+
+				} #end of if r-object, then calc.
+
+		## Mortality rate
+		##
+
+			M <- mat.or.vec(Nplot,num.species*17)                  # Creating a NPlot*119 vector of zeros
+
+		##If one of the supported classes
+
+			#if rf AND glm object...
+			
+				if(class(m.coef[[1]])[2]=="rf") {	
+
+					num.szcl <- 0
+
+					for (j in 1:num.species) {
+
+						for (i in 1:17) { 
+
+							hold <- as.data.frame(cbind(B,rowSums(N.ALL),rep(diam.class[i],Nplot),Hs,Hd,PPT,Tmean,inv.dat[,param.loc]))
+
+							names(hold) <- c("BA1","N","DBH","Hs","Hd","PPT","Tmean",param.names)
+
+							pred <- predict(m.coef[[j]], newdata=hold, type="response")/Time
+
+							M[,i+num.szcl] <- pmin(1,pmax(0,pred))  #Species j
+
+							}
+
+						num.szcl <- num.szcl + 17
+					}
+				}
+
+			#if rf object...
+			
+				#if(class(m.coef[[1]])=="rf") {	
+
+					#num.szcl <- 0
+
+					#for (j in 1:num.species) {
+
+						#for (i in 1:17) { 
+
+							#hold <- as.data.frame(cbind(B,rep(diam.class[i],Nplot),Hs,Hd,inv.dat[,param.loc]))
+
+							#names(hold) <- c("BA1","DBH","Hs","Hd",param.names)
+
+							#pred <- predict(m.coef[[j]], newdata=hold, type="response")
+
+							#M[,i+num.szcl] <- pmin(1,pmax(0,pred))  #Species j
+
+							#}
+
+						#num.szcl <- num.szcl + 17
+					#}
+				#}
+
+			#if gstat spatial object...
+
+				if(class(m.coef[[1]][[2]])[1]=="variogramModel" && class(m.coef[[1]][[2]])[2]=="data.frame" && class(m.coef[[1]][[3]])=="character") {	
+
+					num.szcl <- 0
+
+					for (j in 1:num.species) {
+
+						for (i in 1:17) { 
+
+							pred.data <- as.data.frame(cbind(B,rep(diam.class[i],Nplot),Hs,Hd,inv.dat[,param.loc]))
+
+							names(pred.data) <- c("BA1","DBH","Hs","Hd",param.names)
+
+							coordinates(pred.data) = ~ UTM_X + UTM_Y
+
+							pred <- krige(as.formula(m.coef[[j]][[3]]), m.coef[[j]][[1]], pred.data, model = m.coef[[j]][[2]])$var1.pred
+
+							M[,i+num.szcl] <- pmin(1,pmax(0,pred))  #Species j
+
+							}
+
+						num.szcl <- num.szcl + 17
+
+					} #end of if gstat
+
+				} #end of if r-object, then calc.
+
+			
+		## Rate of staying in the same diam class
+		##
+			Surv <- matrix(1,Nplot,num.species*17)- G - M
+
+                        
+		##########################################
+		##          STAND SIMULATION            ##
+		##########################################
+
+		#Upgrowth amount by species
+
+			num.szcl <- 1:16
+
+			for (i in 1:num.species) { 
+
+				assign(paste("G",i,sep=""),stem.dist[,num.szcl]*G[,num.szcl]) 
+
+				num.szcl <- num.szcl + 17
+			} 
+		#Total upgrowth
+
+			num.szcl <- 17
+
+			U <- matrix(0,ncol=num.species*num.szcl,nrow=Nplot)
+
+			num.szcl <- 17
+
+			for (i in 1:num.species) { 
+
+				U[,(num.szcl-15):(num.szcl)] <- get(paste("G",i,sep="")) 
+
+				num.szcl <- num.szcl + 17
+			} 
+
+		#Predicted Stand State
+
+   			stem.dist2 <- R + stem.dist*Surv + U  
+
+                              
+		#At the end of Simulation n.rep, assign stem.dist2 as stem.dist iif it needs to be updated (by using function update.mat)
+
+			update.mat <- function(x) {
+
+				update.plot <- max.year
+
+				if(k<=update.plot) { stem.dist2[x,] }
+ 
+				else { stem.dist[x,] }
+			}
+
+			stem.dist <- t(mapply(update.mat, 1:Nplot))                        
+            
+
+                       #stem.dist <- as.matrix(stem.dist)  
+
+
+                       for (i in 1:Nplot) {
+                           for (j in 1:length(tree.loc)) {
+                              if(stem.dist[i,j] == "null") { stem.dist[i,j]=0 } 
+	                         }
+		                   }     
+
+
+                        for (i in 1:Nplot) {
+                           for (j in 1:length(tree.loc)) {
+                              if(stem.dist[i,j] > 850) { stem.dist[i,j]=850 } 
+	                         }
+		                   }     
+
+			
+
+                #output the results
+                        
+                              
+                              basalarea <- stem.dist * basal 
+
+
+                              }   
+                              
+
+	} #end of outer loop
+        
+        write.table(basalarea, "Results/basalarea.txt", sep="\t", row.names=FALSE)
+                   
+	#output results to a text file
+		if(output==TRUE) write.table(stem.dist, file="standsim output.txt", se="\t") #output results if output is set to be true
+	#return the value of stem.dist for further use in R
+		stem.dist	#later to be changed to a "..." class which includes other information such as num.species, num.szcl, diam.class, etc...
+}
+
+
